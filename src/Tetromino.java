@@ -27,28 +27,28 @@ public class Tetromino {
     protected State[] states;
     protected int times = 100;
 
-    public void leftMove() {
+    public void moveLeft() {
         for (Cell cell:cells
              ) {
             cell.left();
         }
     }
 
-    public void rightMove() {
+    public void moveRight() {
         for (Cell cell:cells
              ) {
             cell.right();
         }
     }
 
-    public void dropMove() {
+    public void softDrop() {
         for (Cell cell:cells
              ) {
             cell.drop();
         }
     }
 
-    public static Tetromino randomCreate() {
+    public static Tetromino randomOne() {
         int type = (int)(Math.random() * 7);
         Tetromino tetromino = null;
         switch (type) {
@@ -56,32 +56,46 @@ public class Tetromino {
                 tetromino = new I();
                 break;
             case 1:
-                tetromino = new T();
-                break;
-            case 2:
                 tetromino = new J();
                 break;
-            case 3:
+            case 2:
                 tetromino = new L();
+                break;
+            case 3:
+                tetromino = new O();
                 break;
             case 4:
                 tetromino = new S();
                 break;
             case 5:
-                tetromino = new Z();
+                tetromino = new T();
                 break;
             case 6:
-                tetromino = new O();
+                tetromino = new Z();
                 break;
         }
         return tetromino;
     }
 
-    public void rotationRight() {
+    public void rotateRight() {
         if (states.length == 0) {
             return;
         }
        times++;
+        State s = states[times % states.length];
+        Cell cell = cells[0];
+        int row = cell.getRow();
+        int col = cell.getCol();
+        cells[1].setRow(row + s.row1);
+        cells[1].setCol(col + s.col1);
+        cells[2].setRow(row + s.row2);
+        cells[2].setCol(col + s.col2);
+        cells[3].setRow(row + s.row3);
+        cells[3].setCol(col + s.col3);
+    }
+
+    public void rotateLeft() {
+        times --;
         State s = states[times % states.length];
         Cell cell = cells[0];
         int row = cell.getRow();

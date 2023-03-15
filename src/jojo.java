@@ -1,6 +1,9 @@
 import javax.imageio.ImageIO;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
+import java.awt.event.KeyListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -8,14 +11,14 @@ import java.io.IOException;
 /*
     俄罗斯方块的主类，用于初始化游戏界面等
  */
-public class Tetris extends JPanel {
-    private Tetromino currentOne = Tetromino.randomCreate();
-    private Tetromino nextOne = Tetromino.randomCreate();
+public class jojo extends JPanel {
+    private Tetromino currentOne = Tetromino.randomOne();
+    private Tetromino nextOne = Tetromino.randomOne();
     private Cell[][] background = new Cell[18][9];
     private static final int CELL_SIZE = 48;
 
     //score
-    int[] score_pool = {0, 1, 2, 5, 10};
+    int[] scores_pool = {0, 1, 2, 5, 10};
     private int totalScore = 0;
     private int totalLine = 0;
 
@@ -33,7 +36,7 @@ public class Tetris extends JPanel {
     public static BufferedImage S;
     public static BufferedImage T;
     public static BufferedImage Z;
-    public static BufferedImage Wall;
+    public static BufferedImage backImg;
     // 静态代码块，类加载时自动载入，先载入上面的静态变量
     static {
         try {
@@ -45,9 +48,7 @@ public class Tetris extends JPanel {
             S = ImageIO.read(new File("images/S.png"));
             T = ImageIO.read(new File("images/T.png"));
             Z = ImageIO.read(new File("images/Z.png"));
-            Wall = ImageIO.read(new File("images/background.png"));
-
-
+            backImg = ImageIO.read(new File("images/background.png"));
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -55,7 +56,7 @@ public class Tetris extends JPanel {
     // Method paint
     @Override
     public void paint(Graphics g) {
-        g.drawImage(Wall, 0, 0, null);
+        g.drawImage(backImg, 0, 0, null);
         g.translate(22,15);
         paintBackground(g);
         // paint different parts
@@ -71,6 +72,9 @@ public class Tetris extends JPanel {
             g.drawString(show_state[gameState], 480, 660);
         }else if (gameState == PAUSE) {
             g.drawString(show_state[gameState], 480, 660);
+            g.setColor(Color.red);
+            g.setFont(new Font(Font.SANS_SERIF, Font.BOLD,60));
+            g.drawString("Pause!",30,450);
         } else if (gameState == GAMEOVER) {
             g.drawString(show_state[gameState], 480, 660);
             g.setColor(Color.red);
@@ -90,7 +94,7 @@ public class Tetris extends JPanel {
     private void paintNextOne(Graphics g) {
         Cell[] cells = nextOne.cells;
         for (Cell cell: cells
-             ) {
+        ) {
             int x = cell.getCol() * CELL_SIZE + 380;
             int y = cell.getRow() * CELL_SIZE + 20;
             g.drawImage(cell.getImage(), x, y, null);
@@ -100,7 +104,7 @@ public class Tetris extends JPanel {
     private void paintCurrent(Graphics g) {
         Cell[] cells = currentOne.cells;
         for (Cell cell:cells
-             ) {
+        ) {
             // position x, y
             int x = cell.getCol() * CELL_SIZE;
             int y = cell.getRow() * CELL_SIZE;
@@ -124,15 +128,95 @@ public class Tetris extends JPanel {
             }
         }
     }
+    // control with keyboard
+    public void start() {
+        gameState = PLAYING;
+
+        KeyListener l = new KeyAdapter() {
+            @Override
+            public void keyPressed(KeyEvent e) {
+                int code = e.getKeyCode();
+                if (gameState == PLAYING){
+                    switch (code) {
+                        case KeyEvent.VK_DOWN:
+                            sortDropAction();
+                            break;
+                        case KeyEvent.VK_LEFT:
+                            moveLeft(); //左移
+                            break;
+                        case KeyEvent.VK_RIGHT:
+                            moveRight(); //右移
+                            break;
+                        case KeyEvent.VK_UP:
+                            rotationRightReverse(); //顺时针旋转
+                            break;
+                        case KeyEvent.VK_SPACE:
+                            deepDrop(); //瞬间下落
+                            break;
+                        case KeyEvent.VK_P:
+                            if(gameState == PLAYING){
+                                gameState = PAUSE;
+                            }
+                            break;
+                    }
+                } else if (gameState == PAUSE) {
+                   if (code == KeyEvent.VK_C) {
+                    gameState = PLAYING;
+                   }
+                }
+
+                if(code == KeyEvent.VK_R){
+                    //表示游戏重新开始
+                    gameState = PLAYING;
+                    background = new Cell[18][9];
+                    currentOne = Tetromino.randomOne();
+                    nextOne = Tetromino.randomOne();
+                    totalScore = 0;
+                    totalLine = 0;
+                }
+            }
+
+        };
+        this.addKeyListener(l);
+        this.requestFocus();
+
+        while(true){
+            //判断，当前游戏状态在游戏中时，每隔0.5秒下落
+            if(gameState == PLAYING){
+                try {
+                    Thread.sleep(500);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                //判断能否下落
+                if(canDrop()){
+                    currentOne.softDrop();
+                }else{
+                    //嵌入到墙中
+                    insertIntoWall();
+                    //判断能否消行
+                    clearAndCount();
+                    //判断游戏是否结束
+                    if(isGameOver()){
+                        gameState = GAMEOVER;
+                    }else{
+                        currentOne = nextOne;
+                        nextOne = Tetromino.randomOne();
+                    }
+                }
+            }
+            repaint();
+        }
+    }
 
     // outOfBound for currentOne
     public boolean outOfBound() {
         Cell[] cells = currentOne.cells;
         for (Cell cell:cells
-             ) {
+        ) {
             int col = cell.getCol();
             int row = cell.getRow();
-            if (col < 0 || col > background.length - 1 || row < 0 || row > background[0].length - 1) {
+            if (row < 0 || row > background.length - 1 || col < 0 || col > background[0].length - 1) {
                 return true;
             }
         }
@@ -143,7 +227,7 @@ public class Tetris extends JPanel {
     public boolean dup() {
         Cell[] cells = currentOne.cells;
         for (Cell cell: cells
-             ) {
+        ) {
             int row = cell.getRow();
             int col = cell.getCol();
             if (background[row][col] != null) {
@@ -155,15 +239,15 @@ public class Tetris extends JPanel {
 
     // moveLeft
     public void moveLeft() {
-        currentOne.leftMove();
+        currentOne.moveLeft();
         if (outOfBound() || dup()){
-            currentOne.rightMove();
+            currentOne.moveRight();
         }
     }
     public void moveRight() {
-        currentOne.rightMove();
+        currentOne.moveRight();
         if (outOfBound() || dup()) {
-            currentOne.leftMove();
+            currentOne.moveLeft();
         }
     }
 
@@ -171,7 +255,7 @@ public class Tetris extends JPanel {
     public boolean isFull(int row) {
         Cell[] cells = background[row];
         for (Cell cell:cells
-             ) {
+        ) {
             if(cell == null) {
                 return false;
             }
@@ -179,11 +263,11 @@ public class Tetris extends JPanel {
         return true;
     }
     // clear lines and count scores
-    public void clear() {
+    public void clearAndCount() {
         int countLine = 0;
         Cell[] cells = currentOne.cells;
         for (Cell cell:cells
-             ) {
+        ) {
             int row = cell.getRow();
             if (isFull(row)) {
                 countLine++;
@@ -194,14 +278,14 @@ public class Tetris extends JPanel {
             }
         }
         totalLine += countLine;
-        totalScore += score_pool[countLine];
+        totalScore += scores_pool[countLine];
     }
 
     // Gameover?
     public boolean isGameOver() {
-        Cell[] cells = currentOne.cells;
+        Cell[] cells = nextOne.cells;
         for (Cell cell:cells
-             ) {
+        ) {
             int row = cell.getRow();
             int col = cell.getCol();
             if (background[row][col] != null) {
@@ -211,11 +295,82 @@ public class Tetris extends JPanel {
         return false;
     }
 
+    public boolean canDrop() {
+        Cell[] cells = currentOne.cells;
+        for (Cell cell:cells
+        ) {
+            int row = cell.getRow();
+            int col = cell.getCol();
+
+            if(row == background.length - 1) {
+                return false;
+            }else if (background[row + 1][col] != null ) {
+                return false; // 下一个格子也有Cell
+            }
+        }
+        return true;
+    }
+
+    public  void sortDropAction() {
+        if(canDrop()) {
+            currentOne.softDrop();
+        }else{
+            insertIntoWall();
+            clearAndCount();
+            if(isGameOver()) {
+                gameState = GAMEOVER;
+            }else{
+                currentOne = nextOne;
+                nextOne = Tetromino.randomOne();
+            }
+
+        }
+
+    }
+    // press ont time and drop until it stops
+    public void deepDrop() {
+        while (canDrop()) {
+            currentOne.softDrop();
+        }
+        insertIntoWall();
+        clearAndCount();
+        if(isGameOver()) {
+            gameState = GAMEOVER;
+        }else {
+            currentOne = nextOne;
+            nextOne = Tetromino.randomOne();
+        }
+    }
+
+    private void insertIntoWall() {
+        Cell[] cells = currentOne.cells;
+        for (Cell cell: cells
+        ) {
+            int row = cell.getRow();
+            int col = cell.getCol();
+            background[row][col] = cell;
+        }
+    }
+
+    public void rotationRightReverse() {
+        currentOne.rotateRight();
+        if (outOfBound() || dup()) {
+            currentOne.rotateLeft();
+        }
+    }
+
+    public void rotationLeftReverse() {
+        currentOne.rotateLeft();
+        if (outOfBound() || dup()) {
+            currentOne.rotateRight();
+        }
+    }
+
     public static void main(String[] args) {
-        JFrame frame = new JFrame("Tetris");
+        JFrame frame = new JFrame("jojo");
         // backgroundPicture
-        Tetris back = new Tetris();
-        frame.add(back); // insert back into frame
+        jojo game = new jojo();
+        frame.add(game); // insert back into frame
 
 
         frame.setVisible(true);
@@ -224,5 +379,8 @@ public class Tetris extends JPanel {
         frame.setLocationRelativeTo(null);
         // exit
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        game.start();
     }
 }
+
+
